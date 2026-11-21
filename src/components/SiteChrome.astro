@@ -1,44 +1,59 @@
 ---
-// 全ページ共通: 左上のハンバーガー、左から出る「町の案内図」（ナビ。季節・配色の切替=町の天気もここ）、本体にかかる影
+// 全ページ共通: 右上のナビ（角の丸い帯。サブ項目はドロップダウン）と、その下の「町の天気」（カーソルを載せると季節・空の色が出る）。
+// 2026-11-21: ハンバーガーメニューは廃止。ナビは 5 項目に絞って右上に置いた（項目と並び順は src/lib/town.ts の NAV）。
+import { getCollection } from 'astro:content';
 import site from '../data/site.json';
 import { withBase } from '../lib/url';
-import { PLACES } from '../lib/town';
-const nav = PLACES.map((p) => ({ ...p, href: withBase(p.path) }));   // 項目は src/lib/town.ts
+import { PLACES, NAV, placeFor, audId } from '../lib/town';
+const here = placeFor(Astro.url.pathname, import.meta.env.BASE_URL);   // 今いるページ（ナビで強調する）
+// key: トップの模型の目印（index.astro の spots / diorama.js の HOTSPOTS）と同じ名前。path の末尾から作る
+const link = (path) => { const p = PLACES.find((x) => x.path === path); if (!p) throw new Error('town.ts: NAV の path が PLACES にありません → ' + path); return { label: p.label, href: withBase(p.path), key: p.path.replace(/^\/#?/, ''), current: here?.path === p.path, aud: undefined, color: undefined, external: false }; };
+// お問い合わせの対象（学生・企業・一般）。NAV で audiences: true の項目のサブ項目になる。押すとお問い合わせがその対象のタブで開く
+const audiences = (await getCollection('contact')).sort((x, y) => x.data.order - y.data.order);
+const nav = NAV.map((n) => {
+  const self = n.path ? link(n.path) : null, children = (n.children || []).map(link);
+  if (n.audiences && self) for (const e of audiences) children.push({ label: e.data.label, href: self.href + '#' + audId(e.id), key: self.key, current: false, aud: audId(e.id), color: e.data.color, external: false });
+  if (n.form && site.contactFormUrl) children.push({ label: 'お問い合わせフォーム', href: site.contactFormUrl, key: undefined, current: false, aud: undefined, color: undefined, external: true });
+  return { label: n.label || self?.label || '', self, children, inside: children.some((c) => c.current) };
+});
 const themes = [{ key: 'yellow', label: '黄' }, { key: 'navy', label: '紺' }, { key: 'green', label: '緑' }, { key: 'black', label: '黒' }];
 const seasons = [{ key: 'spring', label: '春' }, { key: 'summer', label: '夏' }, { key: 'autumn', label: '秋' }, { key: 'winter', label: '冬' }];
 ---
-<header class="topbar">
-  <button class="burger" id="burger" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="drawer"><span></span></button>
-</header>
-<div class="shade" id="shade"></div>
-<nav class="drawer" id="drawer" aria-label="メインナビゲーション" aria-hidden="true">
-  <div class="drawer-head">
-    <span class="brand"><b></b>M2D TOWN<small>案内図</small></span>
-    <button class="drawer-close" id="drawer-close" type="button" aria-label="メニューを閉じる">×</button>
+<!-- 町の天気: ふだんは見出しだけ。カーソルを載せる（または押す・キーボードで選ぶ）と、季節と空の色の切替が下に出る -->
+<div class="weather" role="group" aria-label="町の天気">
+  <button class="weather-label" type="button" aria-haspopup="true" aria-expanded="false"><span class="en">Weather · 町の天気</span><i class="caret" aria-hidden="true"></i></button>
+  <div class="row">
+    <div class="season-picker" role="group" aria-label="季節">
+      {seasons.map((sn) => <button type="button" class="season-btn" data-season-key={sn.key}>{sn.label}</button>)}
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="theme-picker" role="group" aria-label="空の色">
+      {themes.map((t) => <button type="button" class="theme-dot" data-theme-key={t.key} title={'空の色: ' + t.label} aria-label={'空の色: ' + t.label}></button>)}
+    </div>
   </div>
+</div>
+
+<!-- ナビ: 右上に常に表示。押すとその項目のページへ移動する（「ホーム」はタウンビューに戻る）。
+     サブ項目はカーソルを載せる（またはキーボードで選ぶ）と下に開く。「研究」のように自分のページを持たない項目は、押しても開閉できる -->
+<nav class="site-nav" id="site-nav" aria-label="メインナビゲーション">
   <ul>
-    {nav.map((n) => <li><a href={n.href}><span class="en">{n.en}</span>{n.label}</a></li>)}
+    {nav.map((n) => (
+      <li class={(n.children.length ? 'has-sub' : '') + (n.inside ? ' inside' : '')}>
+        {n.self
+          ? <a class="nav-top" href={n.self.href} data-nav={n.self.key} aria-current={n.self.current ? 'page' : undefined}>{n.label}{n.children.length > 0 && <i class="caret" aria-hidden="true"></i>}</a>
+          : <button class="nav-top nav-toggle" type="button" aria-haspopup="true" aria-expanded="false">{n.label}<i class="caret" aria-hidden="true"></i></button>}
+        {n.children.length > 0 && (
+          <ul class="sub">
+            {n.children.map((c) => <li><a href={c.href} data-nav={c.key} data-aud={c.aud} aria-current={c.current ? 'page' : undefined} target={c.external ? '_blank' : undefined} rel={c.external ? 'noopener' : undefined}>{c.color && <i class="dot" style={'background:' + c.color}></i>}{c.label}{c.external && <span class="ext" aria-label="（別タブで開く）">↗</span>}</a></li>)}
+          </ul>
+        )}
+      </li>
+    ))}
   </ul>
-  <div class="drawer-weather">
-    <span class="en">Weather · 町の天気</span>
-    <div class="weather-row">
-      <span class="w-label">季節</span>
-      <div class="season-picker" role="group" aria-label="季節">
-        {seasons.map((sn) => <button type="button" class="season-btn" data-season-key={sn.key}>{sn.label}</button>)}
-      </div>
-    </div>
-    <div class="weather-row">
-      <span class="w-label">空の色</span>
-      <div class="theme-picker" role="group" aria-label="配色">
-        {themes.map((t) => <button type="button" class="theme-dot" data-theme-key={t.key} title={'配色: ' + t.label} aria-label={'配色: ' + t.label}></button>)}
-      </div>
-    </div>
-  </div>
-  <p class="drawer-foot">{site.labName}｜{site.labNameAlt}<br /><span class="en">{site.universityEn}</span></p>
 </nav>
 
 <script>
-  // ナビのモーダルと配色。要素はクリックのたびに探す（ページ切替で要素が入れ替わっても動く）
+  // 配色（空の色）と季節の切替。要素はクリックのたびに探す（ページ切替で要素が入れ替わっても動く）
   const THEMES = ['yellow', 'navy', 'green', 'black'];
   const current = () => document.documentElement.dataset.theme || 'yellow';
   function setTheme(name) {
@@ -59,24 +74,29 @@ const seasons = [{ key: 'spring', label: '春' }, { key: 'summer', label: '夏' 
     markDots();
     document.dispatchEvent(new CustomEvent('m2d:season', { detail: name }));
   }
-  function setOpen(on) {
-    const burger = document.getElementById('burger'), drawer = document.getElementById('drawer');
-    document.body.classList.toggle('nav-open', on);
-    if (burger) { burger.setAttribute('aria-expanded', String(on)); burger.setAttribute('aria-label', on ? 'メニューを閉じる' : 'メニューを開く'); }
-    if (drawer) drawer.setAttribute('aria-hidden', String(!on));
-  }
   if (!document.documentElement.dataset.navBound) {
     document.documentElement.dataset.navBound = '1';
     document.addEventListener('click', (e) => {
       const el = e.target instanceof Element ? e.target : null; if (!el) return;
-      if (el.closest('#burger')) { setOpen(!document.body.classList.contains('nav-open')); return; }
-      if (el.closest('#drawer-close') || el.closest('#shade') || el.closest('#drawer a')) { setOpen(false); }
       const dot = el.closest('.theme-dot'); if (dot) setTheme(dot.dataset.themeKey);
       const sb = el.closest('.season-btn'); if (sb) setSeason(sb.dataset.seasonKey);
     });
-    addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
-    // ページ切替後: 保存した配色を再適用し、メニューは閉じた状態に
-    document.addEventListener('astro:after-swap', () => { try { const th = localStorage.getItem('m2d-theme'); if (THEMES.includes(th)) document.documentElement.dataset.theme = th; } catch (e) {} setOpen(false); });
+    // ナビのサブ項目: 親（.nav-toggle）を押すと開閉。ほかの場所や項目を押すと閉じる
+    const closeSubs = (except) => document.querySelectorAll('.site-nav .has-sub.open').forEach((li) => { if (li === except) return; li.classList.remove('open'); li.querySelector('.nav-toggle')?.setAttribute('aria-expanded', 'false'); });
+    document.addEventListener('click', (e) => {
+      const tg = e.target instanceof Element ? e.target.closest('.site-nav .nav-toggle') : null, li = tg ? tg.parentElement : null;
+      closeSubs(li);
+      if (tg && li) tg.setAttribute('aria-expanded', String(li.classList.toggle('open')));
+    }, true);
+    // 町の天気: 見出しを押しても開閉できる（タッチ操作用）。外を押すと閉じる
+    const setWeather = (on) => { const w = document.querySelector('.weather'); if (!w) return; w.classList.toggle('open', on); w.querySelector('.weather-label')?.setAttribute('aria-expanded', String(on)); };
+    document.addEventListener('click', (e) => {
+      const el = e.target instanceof Element ? e.target : null, w = document.querySelector('.weather'); if (!el || !w) return;
+      if (el.closest('.weather-label')) setWeather(!w.classList.contains('open')); else if (!el.closest('.weather')) setWeather(false);
+    }, true);
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSubs(null); setWeather(false); } });
+    // ページ切替後: 保存した配色を再適用
+    document.addEventListener('astro:after-swap', () => { try { const th = localStorage.getItem('m2d-theme'); if (THEMES.includes(th)) document.documentElement.dataset.theme = th; } catch (e) {} });
     document.addEventListener('astro:page-load', markDots);
   }
   markDots();

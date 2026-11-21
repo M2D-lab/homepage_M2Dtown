@@ -1,17 +1,22 @@
 ---
+// アクセス: 所在地と行き方。問い合わせ先は「お問い合わせ」のページにまとめた（2026-11-21）
 import Base from '../layouts/Base.astro';
 import site from '../data/site.json';
+import { withBase } from '../lib/url';
+const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('九州大学 伊都キャンパス ウエスト4号館');
 ---
-<Base title="アクセス・連絡先">
-  <h1>アクセス・連絡先</h1>
+<Base title="アクセス" en="Access">
   <h2>所在地</h2>
-  <p>{site.university}</p>
-  <p>{site.address}</p>
-  <h2>交通案内</h2>
-  <p>{site.accessNote}</p>
+  <address>
+    {site.university}<br />
+    〒{site.postalCode} {site.address}<br />
+    {site.rooms}
+  </address>
+  <p><a href={mapUrl} target="_blank" rel="noopener">Google マップで開く</a></p>
+  {site.accessNote && (<><h2>交通案内</h2><p>{site.accessNote}</p></>)}
   {site.mapEmbedUrl && (
     <iframe src={site.mapEmbedUrl} width="100%" height="360" style="border:0" loading="lazy" title="地図"></iframe>
   )}
-  <h2>連絡先</h2>
-  <p>{site.email}</p>
+  <h2>お問い合わせ</h2>
+  <p>お問い合わせは <a href={withBase('/contact')}>お問い合わせ</a> のページをご覧ください。</p>
 </Base>

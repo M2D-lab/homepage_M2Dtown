@@ -1,0 +1,46 @@
+---
+// お問い合わせ: 対象（学生・企業・一般）ごとの案内をタブで切り替え、その下に共通の窓口を置く。
+// 対象別の文章は src/content/contact/*.md。タブは CSS だけで切り替える（トップの板に読み込まれても動くように、スクリプトを使わない）。
+import Base from '../layouts/Base.astro';
+import site from '../data/site.json';
+import { getCollection, render } from 'astro:content';
+import { withBase } from '../lib/url';
+import { PLACES, audId } from '../lib/town';
+const entries = (await getCollection('contact')).sort((a, b) => a.data.order - b.data.order);
+const auds = await Promise.all(entries.map(async (e) => ({
+  id: audId(e.id), data: e.data, Content: (await render(e)).Content,
+  links: e.data.links.map((path) => PLACES.find((p) => p.path === path)).filter(Boolean),
+})));
+---
+<Base title="お問い合わせ" en="Contact">
+  <div class="aud">
+    {auds.map((a, i) => <input class="aud-radio" type="radio" name="aud" id={a.id} checked={i === 0} />)}
+    <div class="aud-tabs">
+      {auds.map((a) => <label for={a.id}><i style={'background:' + a.data.color}></i>{a.data.label}</label>)}
+    </div>
+    {auds.map((a) => (
+      <section class="aud-body">
+        <h2>{a.data.label}</h2>
+        <a.Content />
+        {a.links.length > 0 && (
+          <p class="aud-links"><span>関連ページ</span>{a.links.map((p) => <a href={withBase(p.path)}>{p.label}</a>)}</p>
+        )}
+      </section>
+    ))}
+  </div>
+
+  <h2>お問い合わせ窓口</h2>
+  <p><a class="hero-cta contact-cta" href={site.contactFormUrl} target="_blank" rel="noopener"><span class="cta-main">お問い合わせフォーム ▶</span><span class="cta-sub">研究室見学・Web 面談は随時受付中</span></a></p>
+  <address>
+    {site.university}<br />
+    〒{site.postalCode} {site.address}<br />
+    {site.rooms}
+  </address>
+  <p class="muted">場所と行き方は <a href={withBase('/access')}>アクセス</a> をご覧ください。</p>
+
+  <script>
+    // ナビのサブ項目（/contact#aud-student など）から来たとき、その対象のタブを選んだ状態にする
+    function pickAudience() { const el = document.getElementById(location.hash.slice(1)); if (el instanceof HTMLInputElement && el.classList.contains('aud-radio')) el.checked = true; }
+    document.addEventListener('astro:page-load', pickAudience); addEventListener('hashchange', pickAudience); pickAudience();
+  </script>
+</Base>

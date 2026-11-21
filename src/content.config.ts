@@ -75,4 +75,27 @@ const equipment = defineCollection({
   }),
 });
 
-export const collections = { research, news, members, publications, equipment };
+// 学生の声: 1 人 = 1 Markdown ファイル（src/content/voices/*.md）。本文は Markdown（## 見出しで質問を区切る）
+const voices = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/voices' }),
+  schema: z.object({
+    name: z.string(),                 // 表示名（例: M1 T.Y.）。本名を出すかは本人が決める
+    grade: z.string().optional(),     // 学年（例: M1 / B4）
+    title: z.string(),                // 一言の見出し
+    member: z.string().optional(),    // members.yaml の id。書くとその人の人形の絵が付く
+    order: z.number().default(99),
+  }),
+});
+
+// お問い合わせの対象別の案内: 1 対象 = 1 Markdown ファイル（src/content/contact/*.md）
+const contact = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/contact' }),
+  schema: z.object({
+    label: z.string(),                // タブに出す名前（例: 学生の方へ）
+    color: z.string().default('#888888'),   // タブの丸の色
+    order: z.number().default(99),
+    links: z.array(z.string()).default([]), // 関連ページ（src/lib/town.ts の path。例: /research）
+  }),
+});
+
+export const collections = { research, news, members, publications, equipment, voices, contact };

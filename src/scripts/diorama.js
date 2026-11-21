@@ -516,7 +516,9 @@ export function createDiorama(canvas, { themeName = 'yellow', seasonName = seaso
     members: [24, 6, 22],                   // キャッチボールの間（ボールの通り道の上）
     equipment: [12, 8, -8],                 // 電子顕微鏡
     news: [-12, 7, 10],                     // 立て看板 = お知らせ
-    access: [14, 5, 12],                    // 郵便受け
+    voices: [18, 6.5, -19],                 // 講義棟の屋上 = 学生の声（右奥。ほかの目印と離して置く）
+    access: [SIGN.x, SIGN.y0 + SIGN.h + 1.2, SIGN.z],   // 町の入口の看板（M2D TOWN）の上 = アクセス
+    contact: [14, 5, 12],                   // 郵便受け = お問い合わせ
   };
 
   // ---- 操作: ドラッグで回転 ----
@@ -724,6 +726,7 @@ export function createDiorama(canvas, { themeName = 'yellow', seasonName = seaso
     const head = info.querySelector('h3'); const r = (head || info).getBoundingClientRect();
     const ax = r.right + 14, ay = r.top + r.height / 2;
     const mx = active._sx, my = active._sy;
+    if (!Number.isFinite(mx) || !Number.isFinite(my)) { leader.classList.remove('on'); return; }   // 目印の位置がまだ決まっていない最初の一瞬は描かない
     const cx = (ax + mx) / 2, cy = Math.min(ay, my) - 40;              // 少し上に膨らむ曲線
     leader.setAttribute('viewBox', `0 0 ${w} ${h}`);
     leader.querySelector('path').setAttribute('d', `M ${ax} ${ay} Q ${cx} ${cy} ${mx} ${my}`);

@@ -1,0 +1,29 @@
+---
+// 学生の声: 在学生から見た研究室の様子。1 人 = src/content/voices/ の Markdown 1 ファイル。
+import Base from '../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import { withBase } from '../lib/url';
+const members = await getCollection('members');
+const entries = (await getCollection('voices')).sort((a, b) => a.data.order - b.data.order);
+const voices = await Promise.all(entries.map(async (e) => {
+  const m = e.data.member ? members.find((x) => x.id === e.data.member) : undefined;
+  return { data: e.data, Content: (await render(e)).Content, voxel: m?.data.voxel };
+}));
+---
+<Base title="学生の声" en="Voices">
+  {voices.length === 0 && <p class="muted">準備中です。</p>}
+  <ul class="voice-list">
+    {voices.map(({ data, Content, voxel }) => (
+      <li class="voice">
+        <header class="voice-head">
+          {voxel && <img class="voice-icon" src={withBase('/images/members/' + voxel)} alt="" loading="lazy" />}
+          <div>
+            <p class="voice-who">{data.grade && <span class="voice-grade">{data.grade}</span>}{data.name}</p>
+            <h2 class="voice-title">{data.title}</h2>
+          </div>
+        </header>
+        <div class="voice-text"><Content /></div>
+      </li>
+    ))}
+  </ul>
+</Base>
